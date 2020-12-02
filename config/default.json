@@ -1,0 +1,6 @@
+{
+    "mongoURI": "mongodb+srv://tomek:tomek@cluster0.y6tsk.mongodb.net/<dbname>?retryWrites=true&w=majority",
+    "jwtSecret": "mysecrettoken",
+    "githubClientId": "5908c1afcd6f3f6fb71e",
+    "githubSecret": "bada82ac3d2ccefb96693ba7a9098ce46eb2d762"
+}
