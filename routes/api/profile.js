@@ -46,6 +46,11 @@ router.post(
 
     // destructure the request
     const {
+      company,
+      location,
+      bio,
+      status,
+      githubusernam,
       website,
       skills,
       youtube,
@@ -53,42 +58,47 @@ router.post(
       instagram,
       linkedin,
       facebook,
-      // spread the rest of the fields we don't need to check
-      ...rest
+      
     } = req.body;
 
     // build a profile
-    const profileFields = {
-      user: req.user.id,
-      website:
-        website && website !== ''
-          ? normalize(website, { forceHttps: true })
-          : '',
-      skills: Array.isArray(skills)
-        ? skills
-        : skills.split(',').map((skill) => ' ' + skill.trim()),
-      ...rest
-    };
+    const profileFields = {};
+      profileFields.user = req.user.id;
+      if(company) profileFields.company = company;
+      if(website) profileFields.website = website;
+      if(location) profileFields.location = location;
+      if(bio) profileFields.bio = bio;
+      if(status) profileFields.status = status;
+      if(githubusername) profileFields.githubusername = githubusername;
+      if(skills){
+          profileFields.skills = skills.split(',').map(skill => skill.trim);
+      };
 
     // Build socialFields object
-    const socialFields = { youtube, twitter, instagram, linkedin, facebook };
+    const profileFields.social = {};
+    if(youtube) profileFields.social.youtube = youtube;
+    if(twitter) profileFields.social.twitter = twitter;
+    if(facebook) profileFields.social.facebook = facebook;
+    if(linkedin) profileFields.social.linkedin = linkedin;
+    if(instagram) profileFields.social.instagram = instagram;
 
-    // normalize social fields to ensure valid url
-    for (const [key, value] of Object.entries(socialFields)) {
-      if (value && value.length > 0)
-        socialFields[key] = normalize(value, { forceHttps: true });
-    }
-    // add to profileFields
-    profileFields.social = socialFields;
+
+
 
     try {
       // Using upsert option (creates new doc if no match is found):
-      let profile = await Profile.findOneAndUpdate(
+      let profile = await Profile.findOne(
         { user: req.user.id },
-        { $set: profileFields },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
       );
-      return res.json(profile);
+      if(profile){
+          profile = await Profile.findByIdAndUpdate({ user: req.user.id},
+            {$set: profileFields}, {new: true});
+            return res.json(profile);
+
+      };
+      profile = new Profile(profileFields);
+      await profile.save();
+      res.send(profile);
     } catch (err) {
       console.error(err.message);
       return res.status(500).send('Server Error');
@@ -162,7 +172,6 @@ router.put(
       check('from', 'From date is required and needs to be from the past')
         .not()
         .isEmpty()
-        .custom((value, { req }) => (req.body.to ? value < req.body.to : true))
     ]
   ],
   async (req, res) => {
@@ -212,14 +221,13 @@ router.put(
 
 router.delete('/experience/:exp_id', auth, async (req, res) => {
   try {
-    const foundProfile = await Profile.findOne({ user: req.user.id });
+    const profile = await Profile.findOne({ user: req.user.id });
 
-    foundProfile.experience = foundProfile.experience.filter(
-      (exp) => exp._id.toString() !== req.params.exp_id
-    );
+    const removeIndex = profile.experience.map(item=> item.id).indexOf(req.params.exp_id);
+    profile.experience.splice(removeIndex, 1);
 
-    await foundProfile.save();
-    return res.status(200).json(foundProfile);
+    await profile.save();
+    return res.status(200).json(profile);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ msg: 'Server error' });
@@ -240,7 +248,6 @@ router.put(
       check('from', 'From date is required and needs to be from the past')
         .not()
         .isEmpty()
-        .custom((value, { req }) => (req.body.to ? value < req.body.to : true))
     ]
   ],
   async (req, res) => {
@@ -290,12 +297,11 @@ router.put(
 
 router.delete('/education/:edu_id', auth, async (req, res) => {
   try {
-    const foundProfile = await Profile.findOne({ user: req.user.id });
-    foundProfile.education = foundProfile.education.filter(
-      (edu) => edu._id.toString() !== req.params.edu_id
-    );
-    await foundProfile.save();
-    return res.status(200).json(foundProfile);
+    const profile = await Profile.findOne({ user: req.user.id });
+    const removeIndex = profile.education.map(item=> education.id).indexOf(req.params.edu_id);
+    profile.education.splice(removeIndex, 1);
+    await profile.save();
+    return res.status(200).json(profile);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ msg: 'Server error' });
