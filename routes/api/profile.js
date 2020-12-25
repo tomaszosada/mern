@@ -1,5 +1,7 @@
 const express = require('express');
 const axios = require('axios');
+const request = require('request')
+
 const config = require('config');
 const router = express.Router();
 const auth = require('../../middleware/auth');
@@ -9,8 +11,6 @@ const { check, validationResult } = require('express-validator');
 const Profile = require('../../models/Profile');
 const User = require('../../models/User');
 const Post = require('../../models/Post');
-const { request } = require('express');
-
 // @route    GET api/profile/me
 // @desc     Get current users profile
 // @access   Private
@@ -88,19 +88,13 @@ router.post(
 
     try {
       // Using upsert option (creates new doc if no match is found):
-      let profile = await Profile.findOne(
+      let profile = await Profile.findOneAndUpdate(
         { user: req.user.id },
+        { $set: profileFields },
+        { new: true, upsert: true }
       );
-      if(profile){
-          profile = await Profile.findByIdAndUpdate({ user: req.user.id},
-            {$set: profileFields}, {new: true});
-            return res.json(profile);
-
-      };
-      profile = new Profile(profileFields);
-      await profile.save();
-      res.send(profile);
-    } catch (err) {
+      res.json(profile);
+    }  catch (err) {
       console.error(err.message);
       return res.status(500).send('Server Error');
     }
@@ -299,7 +293,7 @@ router.put(
 router.delete('/education/:edu_id', auth, async (req, res) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
-    const removeIndex = profile.education.map(item=> education.id).indexOf(req.params.edu_id);
+    const removeIndex = profile.education.map(item=> item.id).indexOf(req.params.edu_id);
     profile.education.splice(removeIndex, 1);
     await profile.save();
     return res.status(200).json(profile);
@@ -315,17 +309,17 @@ router.delete('/education/:edu_id', auth, async (req, res) => {
 router.get('/github/:username', async (req, res) => {
   try {
     const options= {
-      uri: `https://api.github.com/users/${req.params.username}/repos?per_page=5&sort=created:asc&client_id=${config.get('githubCielntId')}&client_secret=${config.get('githubSecret')}`,
+      uri: `https://api.github.com/users/${req.params.username}/repos?per_page=5&sort=created:asc&client_id=${config.get('githubClientId')}&client_secret=${config.get('githubSecret')}`,
       method: 'GET',
       headers: {'user-agent': 'node.js'}
     }
     request(options, (error, response, body)=> {
-      if(errror) console.error(error);
+      if(error) console.error(error);
 
       if(response.statusCode !== 200) {
-        res.status(404).json({msg: 'No Github profile found'});
+        return res.status(404).json({msg: 'No Github profile found'});
       };
-      res.json(JSON.parse(body));
+      return res.json(JSON.parse(body));
     })
   }
   catch (err){
